@@ -1,0 +1,117 @@
+#!/bin/python3
+import curses, sys
+
+def main(stdscr):
+    # Screen setup
+    s = curses.initscr()
+    s.nodelay(1)
+    curses.noecho()
+    curses.raw()
+    s.keypad(1)
+    
+    # Buffer setup
+    b = []
+    src = 'untiteled.txt'
+    R, C = s.getmaxyx()
+    x, y, r, c = [0] * 4
+
+    # Checking for command line arguments (file name)
+    if len(sys.argv) == 2: src = sys.argv[1]
+
+    # If file exists read file
+    try:
+        with open(sys.argv[1]) as f:
+            # If file exists read text in the file and separate it by new line
+            cont = f.read().split('\n')
+            cont = cont[:-1] if len(cont) > 1 else cont
+            for rw in cont:
+            # Transfer every character into ASCII code and add it to the list
+            # File is composed of list of list
+            # Each list contains ACII representation of string
+                b.append([ord(c) for c in rw])
+    # If dosen't creaat new 
+    except:
+        b.append([])
+
+    if len(sys.argv) == 1: b.append([])
+
+    while True:
+        s.move(0, 0)
+
+        # Vertical Scroling
+        if r < y: y = r
+        if r >= y + R: y = r - R+1
+
+        # Horizontal Scroling
+        if c < x: x = v
+        if c >= x + C: x = c - C+1
+
+        for rw in range(R):
+            brw = rw + y
+            for cl in range(C):
+                bcl = cl + x
+                try:
+                    s.addch(rw, cl, b[brw][bcl])
+                except:
+                    pass
+            # Clean screen 
+            s.clrtoeol()
+            try: s.addch('\n')
+            except: pass
+
+        # Brings cursor on the begining of the file
+        curses.curs_set(0) 
+        s.move(r - y, c-x)
+        curses.curs_set(1)
+        s.refresh()
+        ch = -1
+        # Infinite loop that waits for key input
+        while (ch == -1): ch = s.getch()
+
+        # Entering character and preventing non existing shortcuts
+        if ch != ((ch) & 0x1f) and ch < 128: 
+            b[r].insert(c, ch)
+            c += 1
+        # Enter key function
+        elif chr(ch) in '\n\r': 
+            l = b[r][c:]
+            b[r] = b[r][:c]
+            r += 1
+            c = 0
+            b.insert(r, [] + l)
+        # Backspace Key Function
+        elif ch in [8, 263]:
+            if c: 
+                c -= 1
+                del b[r][c]
+            elif r: 
+                l = b[r][c:]
+                del b[r]
+                r -= 1
+                c = len(b[r]);
+                b[r] += l
+        # Moving Cursor
+        elif ch == curses.KEY_LEFT:
+            if c != 0: c -= 1
+            elif r > 0: r -= 1; c = len(b[r])
+        elif ch == curses.KEY_RIGHT:
+            if c < len(b[r]): c += 1
+            elif r < len(b) - 1: r += 1; c = 0
+        elif ch == curses.KEY_UP and r != 0: r -= 1
+        elif ch == curses.KEY_DOWN and r < len(b): r += 1
+        # Check for column length 
+        rw = b[r] if r < len(b) else None
+        rwlen = len(rw) if rw is not None else 0
+        if c > rwlen: c = rwlen
+        # Creating shortcut for exiting (CTRL-q)
+        if ch == (ord('q') & 0x1f): sys.exit()
+        # Shortcut for saving file
+        if ch == (ord('s') & 0x1f): 
+            cont = ''
+            for l in b:
+                cont += ''.join([chr(c) for c in l]) + '\n'
+            with open(src, 'w') as f:
+                f.write(cont)
+
+# Restores terminal in normal state after exiting editor
+curses.wrapper(main)
